@@ -1,1 +1,1 @@
-print("Hello GitSense 🚀")
+print("Webhook test 2 🚀")
