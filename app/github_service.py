@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
 def get_pr_diff(repo_name, pr_number):
     token = os.getenv("GITHUB_TOKEN")
 
@@ -14,7 +13,10 @@ def get_pr_diff(repo_name, pr_number):
     diff = ""
 
     for file in pr.get_files():
-        diff += f"\n--- {file.filename} ---\n"
-        diff += file.patch or ""
+        if not file.patch:
+            continue
 
-    return diff
+        diff += f"\n--- {file.filename} ---\n"
+        diff += file.patch
+
+    return diff[:5000]
