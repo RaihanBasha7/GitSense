@@ -6,3 +6,9 @@ def pas():
     pass
 def divide(a,b):
     return a/b
+def add(a,b):return a+b
+
+password="123456"
+
+def divide(a,b):
+    return a/b
