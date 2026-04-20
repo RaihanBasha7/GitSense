@@ -12,3 +12,11 @@ password="123456"
 
 def divide(a,b):
     return a/b
+import google.generativeai as genai
+
+genai.configure(api_key="AIzaSyBnYdxKoKCSKfkzkHIKySmfqwmgMmi-lr4")
+
+models = genai.list_models()
+
+for model in models:
+    print(model.name)

@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-model = genai.GenerativeModel("gemini-2.5-pro")
+model = genai.GenerativeModel("models/gemini-2.5-flash")
 
 
 def review_code(diff: str):
