@@ -1,13 +1,43 @@
-import google.generativeai as genai
+import requests
 import os
 import json
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+HF_API_URL = "https://api-inference.huggingface.co/models/your-username/gemma-4-e4b-obliterated-v3"
 
-model = genai.GenerativeModel("models/gemini-2.5-flash")
+HEADERS = {
+    "Authorization": f"Bearer {os.getenv('HF_API_KEY')}"
+}
+
+
+def call_hf_api(prompt):
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 500,
+            "temperature": 0.2
+        }
+    }
+
+    # 🔁 Retry logic (VERY IMPORTANT)
+    for attempt in range(3):
+        response = requests.post(HF_API_URL, headers=HEADERS, json=payload)
+
+        if response.status_code == 200:
+            return response.json()
+
+        elif response.status_code == 503:
+            logger.warning("⏳ Model loading... retrying")
+            time.sleep(3)
+
+        else:
+            logger.error(f"❌ HF Error: {response.text}")
+            break
+
+    return {"error": "HF API failed"}
 
 
 def review_code(diff: str):
@@ -38,28 +68,28 @@ Diff:
 """
 
     try:
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        result = call_hf_api(prompt)
 
-        # 🧹 Clean unwanted prefixes (Gemini sometimes adds text)
-        if text.startswith("```"):
-            text = text.strip("```").strip()
+        if "error" in result:
+            return result
 
-        if text.lower().startswith("json"):
-            text = text[4:].strip()
+        # HF usually returns list
+        text = result[0]["generated_text"].strip()
 
-        # ✅ Parse JSON
-        return json.loads(text)
+        # 🧹 Clean output
+        if "```" in text:
+            text = text.replace("```json", "").replace("```", "").strip()
 
-    except json.JSONDecodeError:
-        logger.error("❌ Failed to parse JSON from Gemini")
-        return {
-            "error": "Invalid JSON from model",
-            "raw": text
-        }
+        # Extract JSON safely
+        start = text.find("[")
+        end = text.rfind("]") + 1
+        clean_json = text[start:end]
+
+        return json.loads(clean_json)
 
     except Exception as e:
-        logger.error(f"❌ Gemini error: {e}")
+        logger.error(f"❌ HF Parsing Error: {e}")
         return {
-            "error": str(e)
+            "error": str(e),
+            "raw": result if 'result' in locals() else None
         }
