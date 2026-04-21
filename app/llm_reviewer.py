@@ -6,7 +6,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
-HF_API_URL = "https://api-inference.huggingface.co/models/your-username/gemma-4-e4b-obliterated-v3"
+HF_API_URL = "https://api-inference.huggingface.co/models/google/gemma-2b"
 
 HEADERS = {
     "Authorization": f"Bearer {os.getenv('HF_API_KEY')}"
