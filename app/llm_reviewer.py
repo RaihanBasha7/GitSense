@@ -6,7 +6,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
-HF_API_URL = "https://api-inference.huggingface.co/models/your-username/gemma-4-e4b-obliterated-v3"
+HF_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 
 HEADERS = {
     "Authorization": f"Bearer {os.getenv('HF_API_KEY')}"
@@ -21,6 +21,12 @@ def call_hf_api(prompt):
             "temperature": 0.2
         }
     }
+    
+    response = requests.post(
+    HF_API_URL,
+    headers=HEADERS,
+    json=payload
+)
 
     # 🔁 Retry logic (VERY IMPORTANT)
     for attempt in range(3):
