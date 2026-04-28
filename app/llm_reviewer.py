@@ -27,7 +27,7 @@ Diff:
 
     try:
         response = client.chat.completions.create(
-            model="mixtral-8x7b-32768",  # 🔥 powerful + free
+            model="llama3-8b-8192",  # 🔥 powerful + free
             messages=[
                 {"role": "user", "content": prompt}
             ],
