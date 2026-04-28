@@ -1,60 +1,18 @@
-import requests
+from groq import Groq
 import os
 import json
 import logging
-import time
 
 logger = logging.getLogger(__name__)
 
-HF_API_URL = "https://api-inference.huggingface.co/models/your-username/gemma-4-e4b-obliterated-v3"
-
-HEADERS = {
-    "Authorization": f"Bearer {os.getenv('HF_API_KEY')}"
-}
-
-
-def call_hf_api(prompt):
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 500,
-            "temperature": 0.2
-        }
-    }
-
-    # 🔁 Retry logic (VERY IMPORTANT)
-    for attempt in range(3):
-        response = requests.post(HF_API_URL, headers=HEADERS, json=payload)
-
-        if response.status_code == 200:
-            return response.json()
-
-        elif response.status_code == 503:
-            logger.warning("⏳ Model loading... retrying")
-            time.sleep(3)
-
-        else:
-            logger.error(f"❌ HF Error: {response.text}")
-            break
-
-    return {"error": "HF API failed"}
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
 def review_code(diff: str):
     prompt = f"""
 You are a senior software engineer reviewing a pull request.
 
-Analyze the following git diff and provide:
-
-- Code issues
-- Security risks
-- Style improvements
-- Suggestions
-
-Return ONLY valid JSON.
-No explanation. No markdown. No extra text.
-
-Format:
+Return ONLY valid JSON in this format:
 [
   {{
     "severity": "critical | warning | suggestion",
@@ -68,19 +26,20 @@ Diff:
 """
 
     try:
-        result = call_hf_api(prompt)
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",  # 🔥 powerful + free
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2
+        )
 
-        if "error" in result:
-            return result
+        text = response.choices[0].message.content.strip()
 
-        # HF usually returns list
-        text = result[0]["generated_text"].strip()
-
-        # 🧹 Clean output
+        # Clean JSON
         if "```" in text:
             text = text.replace("```json", "").replace("```", "").strip()
 
-        # Extract JSON safely
         start = text.find("[")
         end = text.rfind("]") + 1
         clean_json = text[start:end]
@@ -88,8 +47,5 @@ Diff:
         return json.loads(clean_json)
 
     except Exception as e:
-        logger.error(f"❌ HF Parsing Error: {e}")
-        return {
-            "error": str(e),
-            "raw": result if 'result' in locals() else None
-        }
+        logger.error(f"❌ Groq error: {e}")
+        return {"error": str(e)}
