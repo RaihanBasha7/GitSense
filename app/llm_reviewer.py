@@ -1,28 +1,18 @@
-from openai import OpenAI
+from groq import Groq
 import os
 import json
 import logging
 
 logger = logging.getLogger(__name__)
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
 def review_code(diff: str):
     prompt = f"""
 You are a senior software engineer reviewing a pull request.
 
-Analyze the following git diff and provide:
-
-- Code issues
-- Security risks
-- Style improvements
-- Suggestions
-
-Return ONLY valid JSON.
-No explanation. No markdown. No extra text.
-
-Format:
+Return ONLY valid JSON in this format:
 [
   {{
     "severity": "critical | warning | suggestion",
@@ -37,9 +27,8 @@ Diff:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",   # fast + cheap + reliable
+            model="llama3-70b-8192",  # 🔥 powerful + free
             messages=[
-                {"role": "system", "content": "You are a strict code reviewer."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.2
@@ -47,7 +36,7 @@ Diff:
 
         text = response.choices[0].message.content.strip()
 
-        # 🧹 Clean JSON if needed
+        # Clean JSON
         if "```" in text:
             text = text.replace("```json", "").replace("```", "").strip()
 
@@ -57,15 +46,6 @@ Diff:
 
         return json.loads(clean_json)
 
-    except json.JSONDecodeError:
-        logger.error("❌ JSON parse failed")
-        return {
-            "error": "Invalid JSON",
-            "raw": text
-        }
-
     except Exception as e:
-        logger.error(f"❌ OpenAI error: {e}")
-        return {
-            "error": str(e)
-        }
+        logger.error(f"❌ Groq error: {e}")
+        return {"error": str(e)}
