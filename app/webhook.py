@@ -18,6 +18,7 @@ async def github_webhook(request: Request):
     if payload.get("action") in ["opened", "synchronize", "reopened"]:
         pr_number = payload["pull_request"]["number"]
         repo_name = payload["repository"]["full_name"]
+        commit_id = payload["pull_request"]["head"]["sha"]
 
         try:
             diff = get_pr_diff(repo_name, pr_number)
@@ -28,7 +29,7 @@ async def github_webhook(request: Request):
 
             # ✅ POST TO GITHUB
             if isinstance(review, list):
-                post_review_comments(repo_name, pr_number, review)
+                post_review_comments(repo_name, pr_number, commit_id, review)
 
             return {"status": "review posted"}
 
