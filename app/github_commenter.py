@@ -28,6 +28,9 @@ def post_review_comments(repo_name, pr_number, commit_id, comments):
                 file_path, line_no = line.split(":")
                 line_no = int(line_no)
 
+                if line_no <= 0:
+                    continue
+
                 pr.create_review_comment(
                     body=comment_body,
                     commit=commit_id,
