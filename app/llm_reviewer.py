@@ -1,65 +1,61 @@
-import requests
+from groq import Groq
 import os
 import json
 import logging
-import time
+
+# Import ChromaDB collection
+from app.rag.chroma_setup import collection
 
 logger = logging.getLogger(__name__)
 
-HF_API_URL = "https://api-inference.huggingface.co/models/your-username/gemma-4-e4b-obliterated-v3"
-
-HEADERS = {
-    "Authorization": f"Bearer {os.getenv('HF_API_KEY')}"
-}
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
-def call_hf_api(prompt):
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 500,
-            "temperature": 0.2
-        }
-    }
+# -----------------------------
+# Retrieve relevant style rules
+# -----------------------------
+def retrieve_relevant_styles(diff: str):
 
-    # 🔁 Retry logic (VERY IMPORTANT)
-    for attempt in range(3):
-        response = requests.post(HF_API_URL, headers=HEADERS, json=payload)
+    results = collection.query(
+        query_texts=[diff],
+        n_results=3
+    )
 
-        if response.status_code == 200:
-            return response.json()
-
-        elif response.status_code == 503:
-            logger.warning("⏳ Model loading... retrying")
-            time.sleep(3)
-
-        else:
-            logger.error(f"❌ HF Error: {response.text}")
-            break
-
-    return {"error": "HF API failed"}
+    return results["documents"][0]
 
 
-def review_code(diff: str):
+# -----------------------------
+# Build AI Prompt
+# -----------------------------
+def build_prompt(diff: str, styles):
+
+    style_context = "\n".join(
+        [f"- {style}" for style in styles]
+    )
+
     prompt = f"""
 You are a senior software engineer reviewing a pull request.
 
-Analyze the following git diff and provide:
+Review the code according to these TEAM CODING STANDARDS:
 
-- Code issues
-- Security risks
-- Style improvements
-- Suggestions
+{style_context}
 
-Return ONLY valid JSON.
-No explanation. No markdown. No extra text.
+Return ONLY raw JSON.
+Do not include markdown formatting.
+Do not include explanations.
+Do not wrap response in ```json.
 
-Format:
+Use exact file path and changed line number from the diff.
+
+Return maximum 3 review comments only.
+Do not repeat comments.
+
+Return format:
 [
   {{
     "severity": "critical | warning | suggestion",
     "comment": "...",
-    "line": "optional"
+    "line": "file_path:line_number"
   }}
 ]
 
@@ -67,29 +63,74 @@ Diff:
 {diff}
 """
 
+    return prompt
+
+
+# -----------------------------
+# Main Review Function
+# -----------------------------
+def review_code(diff: str):
+
     try:
-        result = call_hf_api(prompt)
 
-        if "error" in result:
-            return result
+        # Step 1: Retrieve relevant styles
+        styles = retrieve_relevant_styles(diff)
 
-        # HF usually returns list
-        text = result[0]["generated_text"].strip()
+        logger.info(f"✅ Retrieved styles: {styles}")
 
-        # 🧹 Clean output
-        if "```" in text:
-            text = text.replace("```json", "").replace("```", "").strip()
+        # Step 2: Build RAG-enhanced prompt
+        prompt = build_prompt(diff, styles)
 
-        # Extract JSON safely
-        start = text.find("[")
-        end = text.rfind("]") + 1
-        clean_json = text[start:end]
+        logger.info("✅ Prompt built successfully")
 
-        return json.loads(clean_json)
+        # Step 3: Send prompt to Groq
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2,
+            max_tokens=300
+        )
+
+        text = response.choices[0].message.content.strip()
+
+        logger.info("✅ LLM response received")
+
+        # -----------------------------
+        # Debug Raw Response
+        # -----------------------------
+        logger.info(f"RAW LLM RESPONSE:\n{text}")
+
+        # Remove markdown formatting
+        text = text.replace("```json", "").replace("```", "").strip()
+
+        try:
+
+            # Find JSON array safely
+            if not text.strip().endswith("]"):
+                raise ValueError("Incomplete JSON response")
+
+            parsed_response = json.loads(text)
+
+            logger.info("✅ JSON parsed successfully")
+
+            return parsed_response
+
+        except Exception as parse_error:
+
+            logger.error(f"❌ JSON Parse Error: {parse_error}")
+            logger.error(f"RAW RESPONSE:\n{text}")
+
+            return {
+                "error": "Invalid JSON response from LLM",
+                "raw_response": text
+            }
 
     except Exception as e:
-        logger.error(f"❌ HF Parsing Error: {e}")
+
+        logger.error(f"❌ Groq error: {e}")
+
         return {
-            "error": str(e),
-            "raw": result if 'result' in locals() else None
+            "error": str(e)
         }
