@@ -1,4 +1,5 @@
 from github import Github
+from app.review_memory import save_review
 import os
 
 g = Github(os.getenv("GITHUB_TOKEN"))
@@ -39,6 +40,15 @@ def post_review_comments(repo_name, pr_number, commit_id, comments):
                 )
 
                 print("✅ Inline comment posted")
+                save_review(
+    developer="unknown",
+    repo_name=repo_name,
+    pr_number=pr_number,
+    severity=c["severity"],
+    comment=c["comment"],
+    file_path=file_path,
+    line_number=line_no
+)
 
             # --------------------------------
             # Case 2 → General PR Comment
@@ -48,6 +58,16 @@ def post_review_comments(repo_name, pr_number, commit_id, comments):
                 pr.create_issue_comment(comment_body)
 
                 print("📝 General comment posted")
+                save_review(
+    developer="unknown",
+    repo_name=repo_name,
+    pr_number=pr_number,
+    severity=c["severity"],
+    comment=c["comment"],
+    file_path="general",
+    line_number=0
+)
+                
 
         except Exception as e:
 
