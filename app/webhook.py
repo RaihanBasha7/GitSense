@@ -21,7 +21,7 @@ async def github_webhook(request: Request):
         commit_id = payload["pull_request"]["head"]["sha"]
 
         try:
-            diff = get_pr_diff(repo_name, pr_number)
+            diff, valid_lines = get_pr_diff(repo_name, pr_number)
 
             review = review_code(diff[:3000])
 
