@@ -45,6 +45,9 @@ Do not include markdown formatting.
 Do not include explanations.
 Do not wrap response in ```json.
 
+Return maximum 3 review comments only.
+Do not repeat comments.
+
 Return format:
 [
   {{
@@ -84,7 +87,8 @@ def review_code(diff: str):
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.2
+            temperature=0.2,
+            max_tokens=300
         )
 
         text = response.choices[0].message.content.strip()
@@ -102,14 +106,10 @@ def review_code(diff: str):
         try:
 
             # Find JSON array safely
-            start = text.index("[")
-            end = text.rindex("]") + 1
+            if not text.strip().endswith("]"):
+                raise ValueError("Incomplete JSON response")
 
-            clean_json = text[start:end]
-
-            logger.info(f"CLEAN JSON:\n{clean_json}")
-
-            parsed_response = json.loads(clean_json)
+            parsed_response = json.loads(text)
 
             logger.info("✅ JSON parsed successfully")
 
