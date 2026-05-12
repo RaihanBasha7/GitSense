@@ -40,7 +40,12 @@ Review the code according to these TEAM CODING STANDARDS:
 
 {style_context}
 
-Return ONLY valid JSON in this format:
+Return ONLY raw JSON.
+Do not include markdown formatting.
+Do not include explanations.
+Do not wrap response in ```json.
+
+Return format:
 [
   {{
     "severity": "critical | warning | suggestion",
@@ -73,7 +78,7 @@ def review_code(diff: str):
 
         logger.info("✅ Prompt built successfully")
 
-        # Step 3: Send to Groq LLM
+        # Step 3: Send prompt to Groq
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
@@ -87,21 +92,43 @@ def review_code(diff: str):
         logger.info("✅ LLM response received")
 
         # -----------------------------
-        # Clean JSON Response
+        # Debug Raw Response
         # -----------------------------
-        if "```" in text:
-            text = text.replace("```json", "").replace("```", "").strip()
+        logger.info(f"RAW LLM RESPONSE:\n{text}")
 
-        start = text.find("[")
-        end = text.rfind("]") + 1
-        clean_json = text[start:end]
+        # Remove markdown formatting
+        text = text.replace("```json", "").replace("```", "").strip()
 
-        parsed_response = json.loads(clean_json)
+        try:
 
-        logger.info("✅ JSON parsed successfully")
+            # Find JSON array safely
+            start = text.index("[")
+            end = text.rindex("]") + 1
 
-        return parsed_response
+            clean_json = text[start:end]
+
+            logger.info(f"CLEAN JSON:\n{clean_json}")
+
+            parsed_response = json.loads(clean_json)
+
+            logger.info("✅ JSON parsed successfully")
+
+            return parsed_response
+
+        except Exception as parse_error:
+
+            logger.error(f"❌ JSON Parse Error: {parse_error}")
+            logger.error(f"RAW RESPONSE:\n{text}")
+
+            return {
+                "error": "Invalid JSON response from LLM",
+                "raw_response": text
+            }
 
     except Exception as e:
+
         logger.error(f"❌ Groq error: {e}")
-        return {"error": str(e)}
+
+        return {
+            "error": str(e)
+        }
