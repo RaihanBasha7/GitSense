@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from app.github_service import get_pr_diff
 from app.llm_reviewer import review_code
 from app.github_commenter import post_review_comments
+from app.behavior_tracker import detect_fixed_reviews
 import logging
 
 router = APIRouter()
@@ -22,6 +23,11 @@ async def github_webhook(request: Request):
 
         try:
             diff, valid_lines = get_pr_diff(repo_name, pr_number)
+            detect_fixed_reviews(
+    repo_name,
+    pr_number,
+    diff
+)
 
             review = review_code(diff[:3000])
 

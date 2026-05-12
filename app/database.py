@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS reviews (
     comment TEXT,
     file_path TEXT,
     line_number INTEGER,
-    status TEXT DEFAULT 'pending'
+    status TEXT DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """)
 
