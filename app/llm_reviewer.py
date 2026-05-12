@@ -45,6 +45,8 @@ Do not include markdown formatting.
 Do not include explanations.
 Do not wrap response in ```json.
 
+Use exact file path and changed line number from the diff.
+
 Return maximum 3 review comments only.
 Do not repeat comments.
 
@@ -53,7 +55,7 @@ Return format:
   {{
     "severity": "critical | warning | suggestion",
     "comment": "...",
-    "line": "optional"
+    "line": "file_path:line_number"
   }}
 ]
 
